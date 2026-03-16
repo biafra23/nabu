@@ -30,6 +30,7 @@ public class AggregatedMetrics {
     public static final Counter API_BLOCK_HAS  = build("api_block_has", "Total calls to block/has.");
     public static final Counter API_BLOOM_ADD  = build("api_bloom_add", "Total calls to bloom/add.");
     public static final Counter API_CAT  = build("api_cat", "Total calls to cat.");
+    public static final Counter API_DNS  = build("api_dns", "Total calls to dns.");
     public static final Counter API_FIND_PROVS  = build("api_dht_findprovs", "Total calls to dht/findprovs.");
     public static final Counter API_IPNS_GET  = build("api_ipns_get", "Total calls to ipns/get.");
 

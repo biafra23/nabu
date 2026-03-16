@@ -8,6 +8,7 @@ import org.peergos.*;
 import org.peergos.blockstore.auth.Bat;
 import org.peergos.blockstore.auth.BatId;
 import org.peergos.cbor.*;
+import org.peergos.protocol.dnsaddr.DnsAddr;
 import org.peergos.protocol.ipns.*;
 import org.peergos.protocol.ipns.pb.*;
 import org.peergos.util.*;
@@ -39,6 +40,7 @@ public class APIHandler extends Handler {
     public static final String HAS = "block/has";
 
     public static final String CAT = "cat";
+    public static final String DNS = "dns";
     public static final String FIND_PROVS = "dht/findprovs";
     public static final String IPNS_GET = "ipns/get";
 
@@ -277,11 +279,8 @@ public class APIHandler extends Handler {
                     if (args == null || args.size() != 1) {
                         throw new APIException("argument \"ipfs-path\" is required");
                     }
-                    Optional<String> auth = Optional.ofNullable(params.get("auth"))
-                            .map(a -> a.get(0))
-                            .flatMap(a -> a.isEmpty() ? Optional.empty() : Optional.of(a));
                     Set<PeerId> peers = Optional.ofNullable(params.get("peers"))
-                            .map(p -> p.stream().map(PeerId::fromBase58).collect(Collectors.toSet()))
+                            .map(p -> ipfs.resolvePeerStrings(p))
                             .orElse(Collections.emptySet());
                     Cid cid = Cid.decode(args.get(0));
                     InputStream fileStream = ipfs.getFileStream(cid, peers);
@@ -295,6 +294,29 @@ public class APIHandler extends Handler {
                     fileStream.close();
                     out.flush();
                     out.close();
+                    break;
+                }
+                case DNS: {
+                    AggregatedMetrics.API_DNS.inc();
+                    if (args == null || args.size() != 1) {
+                        throw new APIException("argument \"multiaddr\" is required");
+                    }
+                    List<String> resolved = DnsAddr.resolve(args.get(0));
+                    List<Map<String, String>> entries = new ArrayList<>();
+                    for (String addr : resolved) {
+                        Map<String, String> entry = new LinkedHashMap<>();
+                        entry.put("Address", addr);
+                        int p2pIdx = addr.lastIndexOf("/p2p/");
+                        if (p2pIdx == -1)
+                            p2pIdx = addr.lastIndexOf("/ipfs/");
+                        if (p2pIdx != -1) {
+                            entry.put("PeerId", addr.substring(p2pIdx + 5));
+                        }
+                        entries.add(entry);
+                    }
+                    Map<String, Object> res = new LinkedHashMap<>();
+                    res.put("Addresses", entries);
+                    replyJson(httpExchange, JSONParser.toString(res));
                     break;
                 }
                 case FIND_PROVS: {

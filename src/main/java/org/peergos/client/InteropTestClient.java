@@ -16,8 +16,8 @@ import io.libp2p.protocol.Ping;
 import io.libp2p.protocol.PingController;
 import io.libp2p.security.noise.NoiseXXSecureChannel;
 import io.libp2p.security.tls.TlsSecureChannel;
-import io.libp2p.transport.quic.QuicTransport;
 import io.libp2p.transport.tcp.TcpTransport;
+import io.libp2p.transport.ws.WsTransport;
 import io.ipfs.multiaddr.MultiAddress;
 import redis.clients.jedis.Jedis;
 
@@ -91,11 +91,8 @@ public class InteropTestClient {
         Host node = BuilderJKt.hostJ(Builder.Defaults.None, b -> {
             b.getIdentity().setFactory(() -> privKey);
 
-            if (transport.equals(QUIC_V1)) {
-                b.getSecureTransports().add(QuicTransport::ECDSA);
-            } else {
-                b.getTransports().add(TcpTransport::new);
-            }
+            b.getTransports().add(TcpTransport::new);
+            b.getTransports().add(WsTransport::new);
             if ("noise".equals(security)) {
                 b.getSecureChannels().add((k, m) -> new NoiseXXSecureChannel(k, m));
             } else if ("tls".equals(security)) {

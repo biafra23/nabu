@@ -29,6 +29,7 @@ import org.peergos.protocol.http.*;
 import org.peergos.protocol.ipns.*;
 import org.peergos.util.Logging;
 
+import org.peergos.protocol.dnsaddr.DnsAddr;
 import org.peergos.protocol.unixfs.*;
 
 import java.io.*;
@@ -116,6 +117,32 @@ public class EmbeddedIpfs {
                         blocksFound.stream(),
                         blockRetriever.get().get(remote, peers, addToLocal).stream())
                 .collect(Collectors.toList());
+    }
+
+    /**
+     * Resolve peer strings which can be either base58 PeerIds or multiaddresses
+     * (including /dnsaddr/ addresses). Multiaddresses are resolved, and the
+     * resulting transport addresses are registered in the address book so that
+     * bitswap can reach the peer.
+     */
+    public Set<PeerId> resolvePeerStrings(List<String> peerStrings) {
+        Set<PeerId> peerIds = new HashSet<>();
+        for (String peerStr : peerStrings) {
+            if (peerStr.startsWith("/")) {
+                // It's a multiaddress — resolve (handles /dnsaddr/) and register
+                List<String> resolved = DnsAddr.resolve(peerStr);
+                for (String addr : resolved) {
+                    Multiaddr multiaddr = Multiaddr.fromString(addr);
+                    PeerId peerId = multiaddr.getPeerId();
+                    node.getAddressBook().setAddrs(peerId, 0, multiaddr).join();
+                    peerIds.add(peerId);
+                }
+            } else {
+                // Assume base58 PeerId
+                peerIds.add(PeerId.fromBase58(peerStr));
+            }
+        }
+        return peerIds;
     }
 
     public byte[] getFile(Cid root, Set<PeerId> peers) {

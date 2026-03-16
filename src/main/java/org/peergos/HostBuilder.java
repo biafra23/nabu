@@ -12,8 +12,8 @@ import io.libp2p.core.mux.*;
 import io.libp2p.crypto.keys.*;
 import io.libp2p.protocol.*;
 import io.libp2p.security.noise.*;
-import io.libp2p.transport.quic.QuicTransport;
 import io.libp2p.transport.tcp.*;
+import io.libp2p.transport.ws.WsTransport;
 import io.libp2p.core.crypto.KeyKt;
 import org.peergos.blockstore.*;
 import org.peergos.protocol.autonat.*;
@@ -167,9 +167,8 @@ public class HostBuilder {
         Host host = BuilderJKt.hostJ(Builder.Defaults.None, b -> {
             b.getIdentity().setFactory(() -> privKey);
             List<Multiaddr> toListen = listenAddrs.stream().map(Multiaddr::new).collect(Collectors.toList());
-            if (toListen.stream().anyMatch(a -> a.has(Protocol.QUICV1)))
-                b.getSecureTransports().add(QuicTransport::ECDSA);
             b.getTransports().add(TcpTransport::new);
+            b.getTransports().add(WsTransport::new);
             b.getSecureChannels().add(NoiseXXSecureChannel::new);
 //            b.getSecureChannels().add(TlsSecureChannel::new);
 

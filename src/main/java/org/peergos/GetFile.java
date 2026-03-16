@@ -1,7 +1,6 @@
 package org.peergos;
 
 import io.ipfs.cid.Cid;
-import io.ipfs.multiaddr.MultiAddress;
 import io.libp2p.core.PeerId;
 import org.peergos.blockstore.metadatadb.BlockMetadataStore;
 import org.peergos.config.*;
@@ -14,7 +13,6 @@ import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import java.util.stream.Collectors;
 
 import static org.peergos.EmbeddedIpfs.buildBlockStore;
 import static org.peergos.EmbeddedIpfs.buildBlockMetadata;
@@ -29,11 +27,9 @@ public class GetFile {
             String cidStr = a.getArg("cid");
             String outputPath = a.getArg("output");
 
-            Set<PeerId> peers = a.getOptionalArg("peers")
-                    .map(p -> Arrays.stream(p.split(","))
-                            .map(PeerId::fromBase58)
-                            .collect(Collectors.toSet()))
-                    .orElse(Collections.emptySet());
+            List<String> peerStrings = a.getOptionalArg("peers")
+                    .map(p -> Arrays.asList(p.split(",")))
+                    .orElse(Collections.emptyList());
 
             Path ipfsPath = a.getIPFSDir();
             Logging.init(ipfsPath, a.getBoolean("log-to-console", true));
@@ -56,6 +52,7 @@ public class GetFile {
 
             try {
                 Cid cid = Cid.decode(cidStr);
+                Set<PeerId> peers = ipfs.resolvePeerStrings(peerStrings);
                 InputStream stream = ipfs.getFileStream(cid, peers);
                 try (OutputStream out = Files.newOutputStream(Path.of(outputPath))) {
                     byte[] buf = new byte[8192];

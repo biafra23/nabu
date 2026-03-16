@@ -26,6 +26,10 @@
             <url>https://jitpack.io</url>
         </repository>
         <repository>
+            <id>libp2p-jvm-libp2p</id>
+            <url>https://dl.cloudsmith.io/public/libp2p/jvm-libp2p/maven/</url>
+        </repository>
+        <repository>
             <id>consensys</id>
             <url>https://artifacts.consensys.net/public/maven/maven/</url>
             <releases>
@@ -103,9 +107,9 @@
             <version>${version.multiaddr}</version>
         </dependency>
         <dependency>
-            <groupId>com.github.peergos</groupId>
+            <groupId>io.libp2p</groupId>
             <artifactId>jvm-libp2p</artifactId>
-            <version>0.20.0</version>
+            <version>1.2.2-RELEASE</version>
         </dependency>
         <dependency>
             <groupId>org.bouncycastle</groupId>

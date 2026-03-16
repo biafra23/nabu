@@ -13,10 +13,14 @@ public class DnsAddr {
     public static List<String> resolve(String in) {
         if (! in.startsWith("/dnsaddr/"))
             return List.of(in);
+        // Strip trailing slash if present
+        if (in.endsWith("/"))
+            in = in.substring(0, in.length() - 1);
         int endDomain = in.indexOf("/", 9);
-        String domain = "_dnsaddr." + in.substring(9, endDomain);
-        String suffix = in.substring(endDomain);
-        String alternativeSuffix = suffix.replace("/ipfs/", "/p2p/");
+        boolean hasSuffix = endDomain != -1;
+        String domain = "_dnsaddr." + (hasSuffix ? in.substring(9, endDomain) : in.substring(9));
+        String suffix = hasSuffix ? in.substring(endDomain) : null;
+        String alternativeSuffix = suffix != null ? suffix.replace("/ipfs/", "/p2p/") : null;
 
         LookupSession s = LookupSession.defaultBuilder().build();
         Name txtLookup;
@@ -54,9 +58,11 @@ public class DnsAddr {
                         })
                 .toCompletableFuture()
                 .join();
+        String suffixFilter = suffix;
+        String altSuffixFilter = alternativeSuffix;
         return res.orTimeout(5, TimeUnit.SECONDS).join()
                 .stream()
-                .filter(a -> a.endsWith(suffix) || a.endsWith(alternativeSuffix))
+                .filter(a -> suffixFilter == null || a.endsWith(suffixFilter) || a.endsWith(altSuffixFilter))
                 .collect(Collectors.toList());
     }
 }
