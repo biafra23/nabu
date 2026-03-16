@@ -29,6 +29,9 @@ import org.peergos.protocol.http.*;
 import org.peergos.protocol.ipns.*;
 import org.peergos.util.Logging;
 
+import org.peergos.protocol.unixfs.*;
+
+import java.io.*;
 import java.nio.file.*;
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -113,6 +116,14 @@ public class EmbeddedIpfs {
                         blocksFound.stream(),
                         blockRetriever.get().get(remote, peers, addToLocal).stream())
                 .collect(Collectors.toList());
+    }
+
+    public byte[] getFile(Cid root, Set<PeerId> peers) {
+        return new FileAssembler(this).getFile(root, peers);
+    }
+
+    public InputStream getFileStream(Cid root, Set<PeerId> peers) {
+        return new FileAssembler(this).getFileStream(root, peers);
     }
 
     public CompletableFuture<Integer> publishValue(PrivKey priv, byte[] value, Optional<String> extraDataKeySuffix, Optional<Cborable> extraData, long sequence, int hoursTtl) {

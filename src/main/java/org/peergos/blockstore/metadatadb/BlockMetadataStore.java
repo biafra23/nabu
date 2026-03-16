@@ -2,6 +2,7 @@ package org.peergos.blockstore.metadatadb;
 
 import io.ipfs.cid.Cid;
 import org.peergos.cbor.CborObject;
+import org.peergos.protocol.unixfs.pb.Merkledag;
 
 import java.util.Collections;
 import java.util.List;
@@ -44,6 +45,16 @@ public interface BlockMetadataStore {
                     .collect(Collectors.toList());
             BlockMetadata meta = new BlockMetadata(data.length, links);
             return meta;
+        } else if (block.codec == Cid.Codec.DagProtobuf) {
+            try {
+                Merkledag.PBNode pbNode = Merkledag.PBNode.parseFrom(data);
+                List<Cid> links = pbNode.getLinksList().stream()
+                        .map(link -> org.peergos.protocol.unixfs.UnixFsNode.cidFromPbLinkHash(link.getHash().toByteArray()))
+                        .collect(Collectors.toList());
+                return new BlockMetadata(data.length, links);
+            } catch (com.google.protobuf.InvalidProtocolBufferException e) {
+                throw new RuntimeException("Failed to parse DagProtobuf block", e);
+            }
         } else {
             throw new IllegalStateException("Unsupported Block type");
         }
