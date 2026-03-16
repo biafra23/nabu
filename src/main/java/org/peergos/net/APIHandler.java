@@ -38,6 +38,7 @@ public class APIHandler extends Handler {
     public static final String BLOOM_ADD = "bloom/add";
     public static final String HAS = "block/has";
 
+    public static final String CAT = "cat";
     public static final String FIND_PROVS = "dht/findprovs";
     public static final String IPNS_GET = "ipns/get";
 
@@ -269,6 +270,31 @@ public class APIHandler extends Handler {
                     }
                     Boolean added = ipfs.blockstore.bloomAdd(Cid.decode(args.get(0))).join();
                     replyBytes(httpExchange, added.toString().getBytes());
+                    break;
+                }
+                case CAT: {
+                    AggregatedMetrics.API_CAT.inc();
+                    if (args == null || args.size() != 1) {
+                        throw new APIException("argument \"ipfs-path\" is required");
+                    }
+                    Optional<String> auth = Optional.ofNullable(params.get("auth"))
+                            .map(a -> a.get(0))
+                            .flatMap(a -> a.isEmpty() ? Optional.empty() : Optional.of(a));
+                    Set<PeerId> peers = Optional.ofNullable(params.get("peers"))
+                            .map(p -> p.stream().map(PeerId::fromBase58).collect(Collectors.toSet()))
+                            .orElse(Collections.emptySet());
+                    Cid cid = Cid.decode(args.get(0));
+                    InputStream fileStream = ipfs.getFileStream(cid, peers);
+                    httpExchange.sendResponseHeaders(200, 0);
+                    OutputStream out = httpExchange.getResponseBody();
+                    byte[] buf = new byte[8192];
+                    int n;
+                    while ((n = fileStream.read(buf)) != -1) {
+                        out.write(buf, 0, n);
+                    }
+                    fileStream.close();
+                    out.flush();
+                    out.close();
                     break;
                 }
                 case FIND_PROVS: {

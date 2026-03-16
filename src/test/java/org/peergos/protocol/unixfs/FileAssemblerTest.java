@@ -8,8 +8,10 @@ import io.libp2p.core.PeerId;
 import io.libp2p.core.crypto.PrivKey;
 import org.junit.Assert;
 import org.junit.Test;
+import com.sun.net.httpserver.HttpServer;
 import org.peergos.*;
 import org.peergos.blockstore.RamBlockstore;
+import org.peergos.net.APIHandler;
 import org.peergos.blockstore.metadatadb.BlockMetadata;
 import org.peergos.blockstore.metadatadb.BlockMetadataStore;
 import org.peergos.config.IdentitySection;
@@ -18,8 +20,12 @@ import org.peergos.protocol.unixfs.pb.Unixfs;
 
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
+import java.net.HttpURLConnection;
+import java.net.InetSocketAddress;
+import java.net.URL;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
 
 public class FileAssemblerTest {
@@ -193,6 +199,61 @@ public class FileAssemblerTest {
         BlockMetadata metadata = BlockMetadataStore.extractMetadata(rootCid, rootBlock);
         Assert.assertEquals("Metadata size should match block size", rootBlock.length, metadata.size);
         Assert.assertEquals("Should have 2 links", 2, metadata.links.size());
+    }
+
+    @Test
+    public void catApiEndpoint() throws Exception {
+        EmbeddedIpfs node1 = buildNode();
+        node1.start(false);
+        EmbeddedIpfs node2 = buildNode(node1);
+        node2.start(false);
+
+        int apiPort = TestPorts.getPort();
+        HttpServer apiServer = HttpServer.create(new InetSocketAddress("127.0.0.1", apiPort), 500);
+        apiServer.createContext(APIHandler.API_URL, new APIHandler(node1));
+        apiServer.setExecutor(Executors.newFixedThreadPool(4));
+        apiServer.start();
+
+        try {
+            byte[] chunk1 = "API chunk one. ".getBytes();
+            byte[] chunk2 = "API chunk two.".getBytes();
+
+            Cid cid1 = node2.blockstore.put(chunk1, Cid.Codec.Raw).join();
+            Cid cid2 = node2.blockstore.put(chunk2, Cid.Codec.Raw).join();
+
+            long totalSize = chunk1.length + chunk2.length;
+            byte[] rootBlock = buildUnixFsInteriorBlock(
+                    List.of(cid1, cid2),
+                    List.of((long) chunk1.length, (long) chunk2.length),
+                    totalSize
+            );
+            Cid rootCid = node2.blockstore.put(rootBlock, Cid.Codec.DagProtobuf).join();
+
+            PeerId peerId2 = node2.node.getPeerId();
+            String urlStr = "http://127.0.0.1:" + apiPort + "/api/v0/cat?arg=" + rootCid + "&peers=" + peerId2.toBase58();
+            HttpURLConnection conn = (HttpURLConnection) new URL(urlStr).openConnection();
+            conn.setRequestMethod("POST");
+            Assert.assertEquals("HTTP status should be 200", 200, conn.getResponseCode());
+
+            ByteArrayOutputStream result = new ByteArrayOutputStream();
+            InputStream in = conn.getInputStream();
+            byte[] buf = new byte[1024];
+            int n;
+            while ((n = in.read(buf)) != -1) {
+                result.write(buf, 0, n);
+            }
+            in.close();
+
+            ByteArrayOutputStream expected = new ByteArrayOutputStream();
+            expected.write(chunk1);
+            expected.write(chunk2);
+            Assert.assertArrayEquals("Cat API should return correct file content",
+                    expected.toByteArray(), result.toByteArray());
+        } finally {
+            apiServer.stop(1);
+            node1.stop();
+            node2.stop();
+        }
     }
 
     // --- Helper methods ---
